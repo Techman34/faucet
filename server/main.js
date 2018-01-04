@@ -93,11 +93,15 @@ Meteor.methods({
       error(`Chain with name ${chainName} not found on server`)
     }
 
-    const {eth, mln} = await chain.getBalance(account)
+    try {
+      const {eth, mln} = await chain.getBalance(account)
 
-    return {
-      eth: eth.toString(),
-      mln: mln.toString()
+      return {
+        eth: eth.toString(),
+        mln: mln.toString()
+      }
+    } catch(err) {
+      internalError(err)
     }
   }
 });
