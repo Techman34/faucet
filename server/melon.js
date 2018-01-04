@@ -77,7 +77,6 @@ class Chain {
             return asset == 'ETH' ? sendEther(this.funding, destiny, quantity) : transferTo(this.wallet, asset, destiny, quantity)
         } catch(err) {
             throw Error(`Failed to transfer ${asset} from ${account}: ${err}`)
-            
         }
     }
 }
