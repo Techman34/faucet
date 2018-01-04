@@ -1,145 +1,103 @@
-import { Meteor } from "meteor/meteor";
-import { setup, getBalance, transferTo } from "@melonproject/melon.js";
-import BigNumber from "bignumber.js";
-import Web3 from "web3";
 
-const privateKey = Meteor.settings.captcha.privateKey;
+import { Meteor } from "meteor/meteor";
+import { getChain } from './melon'
+import { canRequestTokens, logRequest } from './rate_limit'
+
+import { ETH, MLN } from '../lib/constants'
+
+const maxRequestsPerDay = Meteor.settings.whitelist.maxRequestsPerDay;
+const captchaPrivateKey = Meteor.settings.captcha.privateKey;
 
 const Raven = require("raven");
 
-// Quantites to be transfered
-import {ETH, MLN} from '../imports/lib/constants'
-import {fromWei} from '../imports/lib/utils'
-
-const fundingNode = "0x00590D7FBC805B7882788D71aFBE7eC2deaF03CA";
-const maxRequestsPerDay = 3;
-const balancePrecision  = 3;
-
 // Set to 1 to get the IP behind an https proxy
 process.env.HTTP_FORWARDED_COUNT = 1;
-
-let Requests = new Meteor.Collection("Requests");
-Requests._ensureIndex({ createdAt: 1 }, { expireAfterSeconds: 86400 });
 
 // Configure Sentry DSN with Raven
 Raven.config(
   "https://***@sentry.io/243362"
 ).install();
 
-// Initialize web3 object
-if (typeof web3 === "undefined") {
-  web3 = new Web3(new Web3.providers.HttpProvider("http://172.17.0.1:8545"));
-}
-
-setup.init({
-  web3,
-  daemonAddress: fundingNode,
-  defaultAccount: fundingNode,
-  tracer: ({ timestamp, message, category }) => {
-    console.log(timestamp.toISOString(), `[${category}]`, message);
-  }
-});
-
-function getEtherBalance(account) {
-  return new Promise(function(resolve,reject){
-    web3.eth.getBalance(account, (err, res) => {
-      if (err) reject(err)
-      resolve(res)
-    });
-  })
-}
-
-const whiteListAddress = Meteor.settings.whitelist.address;
-
-const whiteListIP = Meteor.settings.whitelist.ip;
-
-async function canRequestTokens(ip, address) {
-  if (whiteListIP.indexOf(ip) != -1) {
-    return true
-  }
-
-  if (whiteListAddress.indexOf(address) != -1) {
-    return true
-  }
-  
-  const count = await Requests.find({
-    $or: [{ ethereumAddress: address }, { ipAddress: ip }]
-  }).count();
-
-  return count <= maxRequestsPerDay
-}
-
 Meteor.startup(function() {
   reCAPTCHA.config({
-      privatekey: privateKey
+      privatekey: captchaPrivateKey
   });
 });
 
+function error(msg) {
+  throw new Meteor.Error(400, msg)
+}
+
+function internalError(err) {
+  Raven.captureException(err)
+  error("Transaction Error")
+}
+
 Meteor.methods({
-  faucetRequest: async function(address, captchaData, chain) {
+  faucetRequest: async function(address, captchaData, chainName) {
     const clientIP = this.connection.clientAddress;
 
-    console.log("IP:", clientIP)
+    // CAPTCHA
 
     var verifyCaptchaResponse = reCAPTCHA.verifyCaptcha(clientIP, captchaData);
-
     if (!verifyCaptchaResponse.success) {
-      throw new Meteor.Error(
-        400,
-        "reCAPTCHA Failed: " + verifyCaptchaResponse.error
-      )
+      error("reCAPTCHA Failed: " + verifyCaptchaResponse.error)
     }
+
+    // RATE LIMIT
 
     const isValidIP = await canRequestTokens(clientIP)
-
-    console.log("Valid: ", isValidIP)
-    
-    /*
-    // Check for Request Limits
     if (!isValidIP) {
-      throw new Meteor.Error(
-        400,
-        `You have requested more than ${maxRequestsPerDay} times in the last 24 hours. Please try again later`
-      );
+      error(`You have requested more than ${maxRequestsPerDay} times in the last 24 hours. Please try again later`);
     }
-    */
-    
-    // Transfer MLN-T and K-ETH
+
+    // CHAIN
+
+    const chain = getChain(chainName)
+    if (chain == undefined) {
+      error(`Chain with name ${chainName} not found on server`)
+    }
+
+    // BALANCE
+
     try {
-      console.log("-- Request MLN-T --")
-      const res = await transferTo("MLN-T", address, MLN);
+      const {eth, mln} = await chain.getBalance(account)
 
-      console.log("-- Request KETH --")
-      const amount = await web3.toWei(ETH, "ether");
-      
-      await web3.eth.sendTransaction({
-        from: fundingNode,
-        to: address,
-        value: amount
-      });
+      // Check ether
+      if (eth.lessThan(ETH)) {
+        internalError(`Not enough eth on account ${account}. Current balance: ${eth.toString()}`)
+      }
 
-      Requests.insert({
-        createdAt: new Date(),
-        ethereumAddress: address,
-        ipAddress: clientIP
-      });
-      
-    } catch (e) {
-      console.error(e)
-      Raven.captureException(e);
-      throw new Meteor.Error(400, "Transaction Error");
+      // Check melon
+      if (mln.lessThan(MLN)) {
+        internalError(`Not enough mln on account ${account}. Current balance: ${mln.toString()}`)
+      }
+    } catch(err) {
+      internalError(err)
     }
+    
+    // TRANSFER
+
+    try {
+      await chain.transfer(account, ETH, MLN)
+    } catch(err) {
+      internalError(err)
+    }
+
+    logRequest(account, clientIP)
   },
 
-  getBalance: async function(account, chain) {
-    const ethWei  = await getEtherBalance(account)
-    const mln     = await getBalance('MLN-T', account);
-    
-    const eth = new BigNumber(fromWei(ethWei.toString()));
+  getBalance: async function(account, chainName) {
+    const chain = getChain(chainName)
+    if (chain == undefined) {
+      error(`Chain with name ${chainName} not found on server`)
+    }
+
+    const {eth, mln} = await chain.getBalance(account)
 
     return {
-      eth: eth.toFixed(balancePrecision).toString(),
-      mln: mln.toFixed(balancePrecision).toString()
+      eth: eth.toString(),
+      mln: mln.toString()
     }
   }
 });

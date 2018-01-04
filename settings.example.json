@@ -6,18 +6,22 @@
       "ip": [
         "127.0.0.1"
       ],
-      "address": []
+      "address": [],
+      "maxRequestsPerDay": 10
     },
     "chains": {
       "kovan": {
         "endpoint": "...",
-        "wallet": "..."
+        "wallet": "...",
+        "password": "..."
       },
       "melon": {
         "endpoint": "...",
-        "wallet": "..."
+        "wallet": "...",
+        "password": "..."
       }
     },
+    "balancePrecision": 3,
     "public": {
       "chains": [
         "melon",
