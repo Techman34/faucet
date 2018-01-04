@@ -10,6 +10,9 @@ import {isAddress} from '../lib/utils'
 import {states, colors} from '../lib/constants'
 
 Template.dashboard.helpers({
+  chains() {
+    return Meteor.settings.public.chains
+  },
   kovanAddress() {
     return Session.get("address");
   },
@@ -27,66 +30,61 @@ Template.dashboard.helpers({
   }
 });
 
-async function fetchBalance(account) {
+async function fetchBalance(account=undefined) {
+  if (account === undefined) {
+    account = $("#address").val()
+  }
+
+  if (!isAddress(account)) {
+    Session.set("status", `Address ${account} is not valid.`)
+    return
+  }
+
+  const chain = $("#chain").val();
+  
   // Get account
   try {
-    const {mln, eth} = await getBalance(account)
+    const {mln, eth} = await getBalance(account, chain)
 
     Session.set('ethBalance', eth);
     Session.set('mlnBalance', mln);
 
   } catch(err) {
-    Session.set("status", `Failed to get balance for '${account}'`)
-    return err
+    Session.set("status", `Failed to get balance for '${account}' on '${chain}'`)
+    return null
   }
 
   return undefined
 }
 
 Template.dashboard.rendered = async function(a) {
-  const address = Session.get("address");
-
-  if (isAddress(address)) {
-    let err = await fetchBalance(address)
-    if (err != undefined) {
-      Session.set("status", "Failed to fetch account balance")
-    }
-  }
+  if ($("#address").val() !== undefined)
+    await fetchBalance()
 }
 
 Template.dashboard.events({
+  "change #chain": async (event) => {
+    await fetchBalance()
+  },
   "change #address": async (event) => {
-    let defaultAccount = event.target.value;
-
-    if (!isAddress(defaultAccount)) {
-      Session.set("status", "Address is not valid.")
-      return
-    }
-
-    let err = await fetchBalance(defaultAccount)
-    if (err != undefined) {
-      console.error(err)
-    }
+    await fetchBalance()
   },
   "submit .form-register": async (event, instance) => {
     event.preventDefault()
     
-    let defaultAccount = event.target.address.value;
+    const account = $("#address").val();
+    const chain   = $("#chain").val();
 
-    if (!isAddress(defaultAccount)) {
-      Session.set("status", "Address is not valid.")
-      return
-    }
-    
     Session.set("running", true)
 
     let captchaData = grecaptcha.getResponse();
 
     Session.set("status", "Fetching account...")
 
-    let err = await fetchBalance(defaultAccount)
-    if (err != undefined) {
-      return
+    let err = await fetchBalance();
+    if (err == null) {
+      // failed
+      return 
     }
 
     Session.set("status", "Transfering assets...")
@@ -95,8 +93,9 @@ Template.dashboard.events({
       toastr.info("Please Wait");
 
       let res = await faucetRequest(
-        defaultAccount,
-        captchaData
+        account,
+        captchaData,
+        chain
       );
       
       toastr.success(
@@ -109,9 +108,10 @@ Template.dashboard.events({
       toastr.error("Please try again", error.reason);
     }
 
-    err = await fetchBalance(defaultAccount)
-    if (err != undefined) {
-      console.error(err)
+    err = await fetchBalance();
+    if (err == null) {
+      // failed
+      return 
     }
 
     grecaptcha.reset();

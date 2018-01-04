@@ -11,11 +11,11 @@
     "chains": {
       "kovan": {
         "endpoint": "...",
-        "funding": "..."
+        "wallet": "..."
       },
       "melon": {
         "endpoint": "...",
-        "funding": "..."
+        "wallet": "..."
       }
     },
     "public": {
@@ -31,4 +31,4 @@
         "mln": 10.1
       }
     }
-  }
+}

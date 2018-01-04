@@ -6,14 +6,24 @@
         <div class="card" style="max-width:600px;">
           <div class="card-block">
             <form class="form-register">
-              <input
-                type="text"
-                id="address"
-                name="address"
-                placeholder="address"
-                value="{{kovanAddress}}"
-              />
-              <br />
+              <div>
+                <select
+                  id="chain"
+                >
+                  {{#each chains}}
+                    <option value="{{value}}">{{.}}</option>
+                  {{/each}}
+                </select>
+              </div>
+              <div>
+                <input
+                  type="text"
+                  id="address"
+                  name="address"
+                  placeholder="address"
+                  value="{{kovanAddress}}"
+                />
+              </div>
               <div>
                 {{status}}
               </div>

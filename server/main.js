@@ -15,8 +15,7 @@ const fundingNode = "0x00590D7FBC805B7882788D71aFBE7eC2deaF03CA";
 const maxRequestsPerDay = 3;
 const balancePrecision  = 3;
 
-// Only valid when used with the https proxy
-// Saving requesting ethereum address and IP address to limit faucet requests
+// Set to 1 to get the IP behind an https proxy
 process.env.HTTP_FORWARDED_COUNT = 1;
 
 let Requests = new Meteor.Collection("Requests");
@@ -77,7 +76,7 @@ Meteor.startup(function() {
 });
 
 Meteor.methods({
-  faucetRequest: async function(address, captchaData) {
+  faucetRequest: async function(address, captchaData, chain) {
     const clientIP = this.connection.clientAddress;
 
     console.log("IP:", clientIP)
@@ -104,7 +103,7 @@ Meteor.methods({
       );
     }
     */
-
+    
     // Transfer MLN-T and K-ETH
     try {
       console.log("-- Request MLN-T --")
@@ -132,7 +131,7 @@ Meteor.methods({
     }
   },
 
-  getBalance: async function(account) {
+  getBalance: async function(account, chain) {
     const ethWei  = await getEtherBalance(account)
     const mln     = await getBalance('MLN-T', account);
     

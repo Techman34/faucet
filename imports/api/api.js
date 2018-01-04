@@ -1,18 +1,20 @@
 
 import callWithPromise from './callWithPromise'
 
-async function faucetRequest(captchaData, account) {
+async function faucetRequest(captchaData, account, chain) {
     return callWithPromise(
         "faucetRequest",
         captchaData,
-        account
+        account,
+        chain
     );
 }
 
-async function getBalance(account) {
+async function getBalance(account, chain) {
     return callWithPromise(
         "getBalance",
-        account
+        account,
+        chain
     )
 }
 
