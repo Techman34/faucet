@@ -4,7 +4,15 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "compile": "npm run build && rm -rf pkg && pkg -t linux,macos build/index.js --out-path ./pkg",
+    "build": "babel src/ -d build/",
+    "depcheck": "depcheck --ignores=husky,eslint-config-prettier,eslint-plugin-prettier,prettier,flow-bin,prettier-eslint,eslint-config-plugin:prettier,eslint-config-plugin:flowtype",
+    "format": "prettier-eslint --write src/**/*.js",
+    "flow": "flow",
+    "lint": "eslint .",
+    "prepublish": "npm run build",
+    "pretest": "npm run lint && npm run flow && npm run depcheck",
+    "test": "echo NO TESTS YET"
   },
   "repository": {
     "type": "git",
@@ -14,6 +22,28 @@
   "license": "ISC",
   "bugs": {
     "url": "https://github.com/melonproject/faucet/issues"
+  },
+  "devDependencies": {
+    "babel-cli": "*",
+    "babel-eslint": "*",
+    "babel-plugin-transform-runtime": "*",
+    "babel-preset-flow": "*",
+    "babel-preset-env": "*",
+    "depcheck": "*",
+    "eslint": "*",
+    "eslint-config-airbnb": "*",
+    "eslint-config-prettier": "*",
+    "eslint-plugin-flowtype": "*",
+    "eslint-plugin-prettier": "*",
+    "eslint-plugin-import": "*",
+    "eslint-plugin-jsx-a11y": "*",
+    "eslint-plugin-react": "*",
+    "flow-bin": "*",
+    "husky": "*",
+    "lint-staged": "*",
+    "prettier": "*",
+    "prettier-eslint": "*",
+    "prettier-eslint-cli": "*"
   },
   "homepage": "https://github.com/melonproject/faucet#readme"
 }
